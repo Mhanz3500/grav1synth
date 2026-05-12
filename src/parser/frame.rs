@@ -621,11 +621,15 @@ impl<const WRITE: bool> BitstreamParser<WRITE> {
                             let mut segment = segments.iter_mut().find(|seg| {
                                 seg.start_time <= packet_ts && packet_ts < seg.end_time
                             });
-                            if let Some(segment) = segment.as_mut() {
-                                segment.grain_params.grain_seed = segment
-                                    .grain_params
-                                    .grain_seed
-                                    .wrapping_add(DEFAULT_GRAIN_SEED);
+                            // When not in strict mode, add DEFAULT_GRAIN_SEED to the seed
+                            // for playback compatibility
+                            if !self.strict_mode {
+                                if let Some(segment) = segment.as_mut() {
+                                    segment.grain_params.grain_seed = segment
+                                        .grain_params
+                                        .grain_seed
+                                        .wrapping_add(DEFAULT_GRAIN_SEED);
+                                }
                             }
                             segment
                         })
@@ -3968,6 +3972,7 @@ mod tests {
             big_ref_valid: Default::default(),
             big_order_hints: Default::default(),
             grain_headers: Vec::new(),
+            strict_mode: false,
         }
     }
 
@@ -4604,7 +4609,7 @@ mod tests {
                 assert_eq!(
                     params.grain_seed,
                     100u16.wrapping_add(DEFAULT_GRAIN_SEED),
-                    "grain seed should be original + DEFAULT_GRAIN_SEED"
+                    "grain seed should be original + DEFAULT_GRAIN_SEED when not in strict mode"
                 );
             }
             other => panic!("expected UpdateGrain, got {other:?}"),

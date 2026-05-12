@@ -206,6 +206,7 @@ pub fn main() -> Result<()> {
             iso,
             chroma,
             replace,
+            strict,
         } => {
             if input == output {
                 error!(
@@ -250,7 +251,24 @@ pub fn main() -> Result<()> {
             let new_grain = match (grain, preset, iso) {
                 (Some(grain_path), None, None) => {
                     let grain_data = read_to_string(grain_path)?;
-                    let new_headers = parse_grain_table(&grain_data)?;
+                    let mut new_headers = parse_grain_table(&grain_data)?;
+                    
+                    // Only override seeds if strict mode is enabled
+                    if strict {
+                        // Extract the actual seed values from the file to override av1_grain's values
+                        if let Ok(file_seeds) = extract_seeds_from_grain_table_text(&grain_data) {
+                            for (file_start, file_end, file_seed) in file_seeds {
+                                // Find matching segments and update their seeds
+                                for header in &mut new_headers {
+                                    if header.start_time == file_start && header.end_time == file_end {
+                                        header.random_seed = file_seed;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     Some(
                         new_headers
                             .into_iter()
@@ -327,7 +345,7 @@ pub fn main() -> Result<()> {
             };
 
             let mut parser: BitstreamParser<true> =
-                BitstreamParser::with_writer(reader, writer, new_grain);
+                BitstreamParser::with_writer(reader, writer, new_grain, strict);
 
             parser.modify_grain_headers()?;
 
@@ -396,7 +414,7 @@ pub fn main() -> Result<()> {
             let reader = BitstreamReader::open(&input)?;
             let writer = format::output(&output)?;
             let mut parser: BitstreamParser<true> =
-                BitstreamParser::with_writer(reader, writer, None);
+                BitstreamParser::with_writer(reader, writer, None, false);
 
             parser.modify_grain_headers()?;
 
@@ -829,6 +847,27 @@ fn aggregate_grain_headers(
     })
 }
 
+/// Parses seed values from the grain table file format and returns them indexed by segment.
+/// The grain table file contains "E start_time end_time active seed flags" lines.
+fn extract_seeds_from_grain_table_text(data: &str) -> Result<Vec<(u64, u64, u16)>> {
+    let mut seeds = Vec::new();
+    for line in data.lines() {
+        let line = line.trim();
+        if !line.starts_with('E') {
+            continue;
+        }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 5 {
+            continue;
+        }
+        let start_time: u64 = parts[1].parse()?;
+        let end_time: u64 = parts[2].parse()?;
+        let seed: u16 = parts[4].parse()?;
+        seeds.push((start_time, end_time, seed));
+    }
+    Ok(seeds)
+}
+
 #[derive(Parser, Debug)]
 #[command(
     about = "Grain synth analyzer and editor for AV1 files",
@@ -901,6 +940,10 @@ pub enum Commands {
         /// Without this flag the command skips files that already have grain.
         #[clap(long)]
         replace: bool,
+        /// Strictly use seed values from grain table files without modification.
+        /// When not set, seeds are adjusted for playback compatibility.
+        #[clap(long)]
+        strict: bool,
     },
     /// List all built-in film grain presets that can be used with `apply --preset`.
     Presets,
