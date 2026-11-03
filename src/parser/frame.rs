@@ -4642,8 +4642,7 @@ mod tests {
         match &header.film_grain_params {
             FilmGrainHeader::UpdateGrain(params) => {
                 assert_eq!(
-                    params.grain_seed,
-                    100u16,
+                    params.grain_seed, 100u16,
                     "grain seed should remain unchanged in strict mode"
                 );
             }
