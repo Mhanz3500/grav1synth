@@ -622,7 +622,9 @@ impl<const WRITE: bool> BitstreamParser<WRITE> {
                                 seg.start_time <= packet_ts && packet_ts < seg.end_time
                             });
                             // When not in strict mode, add DEFAULT_GRAIN_SEED to the seed
-                            if !self.strict_mode && let Some(segment) = segment.as_mut() {
+                            if !self.strict_mode 
+                                && let Some(segment) = segment.as_mut()
+                            {
                                 segment.grain_params.grain_seed = segment
                                     .grain_params
                                     .grain_seed
