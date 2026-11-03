@@ -306,9 +306,7 @@ pub fn main() -> Result<()> {
                             iso_setting: iso_value,
                             width,
                             height,
-                            transfer_function: if trc
-                                == AVColorTransferCharacteristic::SMPTE2084
-                            {
+                            transfer_function: if trc == AVColorTransferCharacteristic::SMPTE2084 {
                                 TransferFunction::SMPTE2084
                             } else {
                                 TransferFunction::BT1886
@@ -834,7 +832,7 @@ fn aggregate_grain_headers(
 #[command(
     about = "Grain synth analyzer and editor for AV1 files",
     version,
-    flatten_help = true,
+    flatten_help = true
 )]
 pub struct Args {
     #[clap(subcommand)]
